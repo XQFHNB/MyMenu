@@ -1,0 +1,252 @@
+package com.example.test;
+
+import android.content.Context;
+import android.graphics.Color;
+import android.graphics.Point;
+import android.util.AttributeSet;
+import android.view.MotionEvent;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
+import android.widget.Scroller;
+
+/**
+ * 总算是弄清除主线了，先判断是点击还是滑动，判断滑动后，再判断是左右滑动还是上下滑动，并执行对应的逻辑
+ * 
+ * @author dell
+ * 
+ */
+public class MainUI extends RelativeLayout {
+	private Context context;
+	private FrameLayout LeftMenu, MiddleMenu, RightMenu;
+	private Scroller scroller;// 设置滑动
+	
+	private FrameLayout MiddleMask;//实现蒙版的思路是，我们在中间盖一层，然后一般情况设置的透明度透明的，然后透明度是随着我我们滑动的距离改变而改变
+
+	public static final int Left_ID = 0xaabbcc;
+	public static final int Right_ID = 0xaaccbb;
+	public static final int Middle_ID = 0xccaabb;
+
+	// 自定义控件的构造方法标准形式
+	public MainUI(Context context, AttributeSet attrs) {
+		super(context, attrs);
+		initview(context);
+		// TODO Auto-generated constructor stub
+	}
+
+	/**
+	 * 为什么要用这个构造方法？ 通过实践发现后面
+	 * 
+	 * @param context
+	 */
+	public MainUI(Context context) {
+		// TODO Auto-generated constructor stub
+		super(context);
+		initview(context);
+	}
+
+	/**
+	 * 接下来我们要创建子菜单，它们需要context来承接上下文，准确的说破就是需要context作为参数
+	 * 
+	 * @param context
+	 */
+	private void initview(Context context) {
+		this.context = context;
+		scroller = new Scroller(context, new DecelerateInterpolator());// 滑动也是需要实例化的，第二个参数是用于给动画的，称为渲染
+		// 直接实例化一波
+		LeftMenu = new FrameLayout(context);
+		RightMenu = new FrameLayout(context);
+		MiddleMenu = new FrameLayout(context);
+		MiddleMask=new FrameLayout(context);
+		// 为了视觉效果明显设置一些背景
+		LeftMenu.setBackgroundColor(Color.RED);
+		MiddleMenu.setBackgroundColor(Color.GREEN);
+		RightMenu.setBackgroundColor(Color.RED);
+		
+		MiddleMask.setBackgroundColor(0x880000);//原来设置颜色还可以这样设置，66666，这里设置的最初的颜色，这里是灰色，但是不是很深
+
+		// 设置对应的ID
+		LeftMenu.setId(Left_ID);
+		MiddleMenu.setId(Middle_ID);
+		RightMenu.setId(Right_ID);
+		// 接下来需要将这三个区域全部填充到一个view当中，事实上这个view就是承载这三个区域的最外层的Relativelayout
+		addView(LeftMenu);
+		addView(RightMenu);
+		addView(MiddleMenu);
+		addView(MiddleMask);//它是与其他菜单一起加进去的，因此也需要在宽度和高度上进行设置
+		MiddleMask.setAlpha(0);//最开始肯定是透明的
+	}
+	/**
+	 * 我们在这个方法中监听事件的变化，并设定透明度
+	 */
+	
+	@Override
+	public void scrollTo(int x, int y) {//根据滑动的距离变化而变化
+		// TODO Auto-generated method stub
+		super.scrollTo(x, y);
+		int curX=Math.abs(getScrollX());//根据这个变化而变化
+		float scale=curX/(float)LeftMenu.getMeasuredWidth();
+		MiddleMask.setAlpha(scale);s
+	}
+	/**
+	 * 直接添加进去是没有办法显示的，我们需要测量一下宽度和高度，这个宽度和高度就是我们当前屏幕准确的宽度和高度
+	 */
+	@Override
+	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+		// TODO Auto-generated method stub
+		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+		MiddleMenu.measure(widthMeasureSpec, heightMeasureSpec);// 中间部分最好设置，因为我们是要中间部分充满屏幕，左右菜单高度相同，宽度不同
+		MiddleMask.measure(widthMeasureSpec, heightMeasureSpec);//蒙版的宽高和中间的菜单一样
+		int realWidth = MeasureSpec.getSize(widthMeasureSpec);// 获取到整体屏幕的宽度
+		int tempWidthMeasure = MeasureSpec.makeMeasureSpec(
+				(int) (realWidth * 0.8), MeasureSpec.EXACTLY);// 获取左右菜单的宽，注意参数类型，本方法的参数全是int类型
+		// 而我们的0.8是浮点数，我们使用EACTLY模式，
+		RightMenu.measure(tempWidthMeasure, heightMeasureSpec);// 设置左右菜单的宽度和高度，可以根据项目的需求设置不同的左右菜单宽度
+		LeftMenu.measure(tempWidthMeasure, heightMeasureSpec);
+	}
+
+	/**
+	 * 通过onLayout进行填充
+	 */
+	@Override
+	protected void onLayout(boolean changed, int l, int t, int r, int b) {
+		// TODO Auto-generated method stub
+		super.onLayout(changed, l, t, r, b);
+		// 先填中间部分
+		// 三个块在填充时按照一块来看，因此在加入左菜单后，左上角的坐标位置改变而右下角的坐标位置不变，最后加入右菜单时左上角不变而右下角改变
+		MiddleMenu.layout(l, t, r, b);// 基本充满屏幕,坐标
+		
+		MiddleMask.layout(l, t, r, b);//蒙版的位置也和中间菜单差不多
+		
+		LeftMenu.layout(l - LeftMenu.getMeasuredWidth(), t, r, b);// 只能说老师也是没有弄清楚，这里还是要使用view的坐标来回答问题，就是四个象限那幅图
+		// 也可以使用，l-tempWidthMeasure,
+		RightMenu.layout(
+				l + MiddleMenu.getMeasuredWidth(),
+				t,
+				l + MiddleMenu.getMeasuredWidth()
+						+ RightMenu.getMeasuredWidth(), b);
+	}
+
+	private boolean isWhat;// 用于标记是什么事件，滑動還是點擊
+	private boolean isLeftOrRight;// 用於標記是否爲左右滑動
+
+	/**
+	 * 下面就写一个监听事件来判断是向左还是向右滑动，自己写事件分发
+	 * 
+	 */
+	@Override
+	public boolean dispatchTouchEvent(MotionEvent ev) {
+		/**
+		 * 我们要判断是上下事件还是左右事件，上下事件是针对上下滑动的，左右事件是针对我们的左右菜单滑动的，还有一个是点击事件的处理
+		 */
+		// TODO Auto-generated method stub
+		if (!isWhat) {
+			getEventType(ev);// 创建一个方法对事件进行判断
+			return true;
+		}
+		// 判断左右滑动
+		if (isLeftOrRight) {// 若是左右滑动
+			switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_MOVE:// 这个case是一点都没有防备，是一点都不知道原因，也解释不出来
+				int curScrollX = getScrollX();// 定义一个滚动的距离
+				int dis_x = (int) (ev.getX() - point.x);// 获取手指放下以及滑动的距离，就是滑动的距离
+				int expectx = -dis_x + curScrollX;
+				int finalX = 0;
+				if (expectx < 0) {// 向左滑动
+					finalX = Math.max(expectx, -LeftMenu.getMeasuredWidth());// 两个值都是负的，取绝对值较小的。
+				} else {// 向右滑动
+					finalX = Math.min(expectx, RightMenu.getMeasuredWidth());// 两个值都是正的，取绝对值较大的。
+				}
+				scrollTo(finalX, 0);
+				point.x = (int) ev.getX();
+				break;
+			case MotionEvent.ACTION_UP:
+			case MotionEvent.ACTION_CANCEL:
+				curScrollX = getScrollX();// 这个值要是像右滑就是负值，向左滑就是正值,getScrollx()方法返回的就是喜欢的类型
+				if (Math.abs(curScrollX) > LeftMenu.getMeasuredWidth() >> 1) {// 右移一位就是除以二，我们设定的情形是滑动距离超过左菜单一般的时候,允许滑动
+					if (curScrollX < 0) {// 手指向右动，出现左菜单，
+						scroller.startScroll(curScrollX, 0,
+								-LeftMenu.getMeasuredWidth() - curScrollX, 0,
+								200);// 开始滑动，起始坐标为手指接触屏幕滑动结束的位置，结束位置设置为全部显示，y不用管，因为本身就不用变
+					} else {
+						scroller.startScroll(curScrollX, 0,
+								RightMenu.getMeasuredWidth() - curScrollX, 0,
+								200);// 两百是我们给定的动画执行时间，200ms
+					}
+				} else {
+					scroller.startScroll(curScrollX, 0, -curScrollX, 0);// 滑动距离没有超过标准就返回到原位置
+				}
+				invalidate();
+				isLeftOrRight = false;
+				isWhat = false;
+				break;
+
+			default:
+				break;
+			}
+		} else {
+			// 若不是左右滑动，就是上下了
+			switch (ev.getActionMasked()) {
+			case MotionEvent.ACTION_UP:
+				isLeftOrRight = false;
+				isWhat = false;
+				break;
+
+			default:
+				break;
+			}
+		}
+		return super.dispatchTouchEvent(ev);
+	}
+
+	@Override
+	public void computeScroll() {
+		// TODO Auto-generated method stub
+		super.computeScroll();// 这个回调方法一定要重写不然不会滑动
+		if (!scroller.computeScrollOffset()) {
+			return;
+		}
+		int tempX = scroller.getCurrX();// 定义一个我们滑动的值，这个滑动的值就是我们滑动的距离
+		scrollTo(tempX, 0);
+	}
+
+	private Point point = new Point();// 设置一个点，根据点获取到当前滑动的距离，根据滑动的距离判断是滑动还是点击
+	private static final int TEST_DIS = 20;// 定義一個做比較的值，如果大於20就是滑動了
+
+	private void getEventType(MotionEvent ev) {
+		// TODO Auto-generated method stub
+		// 基本的事件也就这么多（三个）
+		switch (ev.getActionMasked()) {
+		case MotionEvent.ACTION_DOWN:// 鼠标 按下的时候做处理
+			point.x = (int) ev.getX();// 每次都要獲取點的座標，getX()方法是返回float類型，因此我們要強制爲int類型
+			point.y = (int) ev.getY();
+			super.dispatchTouchEvent(ev);//具体的处理点击事件的逻辑
+			break;
+
+		case MotionEvent.ACTION_MOVE:// 鼠标移动的时候做处理
+			int dX = Math.abs((int) ev.getX() - point.x);// 只看絕對值，左右滑動不介意
+			int dY = (int) Math.abs(ev.getY() - point.y);
+			if (dX >= TEST_DIS && dX > dY) {// 前半句代表是滑动，后半句代表是左右，代表是左右滑動
+				isLeftOrRight = true;// 左右滑動
+				isWhat = true;// 是滑動
+				point.x = (int) ev.getX();// 为了每次滑动过后，接下来能够继续滑动，每次都要獲取點的座標，getX()方法是返回float類型，因此我們要強制爲int類型
+				point.y = (int) ev.getY();
+			} else if (dY >= TEST_DIS && dY > dX) {// 代表上下滑動
+				isLeftOrRight = false;// 不是左右滑動
+				isWhat = true;// 是滑動
+				point.x = (int) ev.getX();// 每次都要獲取點的座標，getX()方法是返回float類型，因此我們要強制爲int類型
+				point.y = (int) ev.getY();
+			}
+			break;
+		case MotionEvent.ACTION_UP:
+		case MotionEvent.ACTION_CANCEL:// 处理手指滑到边缘的情况
+			super.dispatchTouchEvent(ev);// 点击事件不需要我们自己处理，我们直接抛给系统处理就ok了
+			isLeftOrRight = false;
+			isWhat = false;
+			break;
+		default:
+			break;
+		}
+
+	}
+}

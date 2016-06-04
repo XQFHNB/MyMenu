@@ -1,0 +1,19 @@
+package com.example.test;
+
+import android.app.Activity;
+import android.os.Bundle;
+
+
+public class AtyMain extends Activity {
+	private MainUI mainui;
+	private LeftMenu leftMenu;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mainui=new MainUI(this); 
+        setContentView(mainui);
+        leftMenu=new LeftMenu();
+    }
+
+    
+}
